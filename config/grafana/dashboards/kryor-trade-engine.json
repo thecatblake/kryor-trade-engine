@@ -16,9 +16,295 @@
   ],
   "panels": [
     {
-      "title": "Price Chart (select symbol)",
+      "title": "Equity",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "kryor_equity_usd", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 95000 },
+              { "color": "green", "value": 100000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "area",
+        "colorMode": "background"
+      }
+    },
+    {
+      "title": "Daily P&L",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "kryor_daily_pnl_usd", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background" }
+    },
+    {
+      "title": "Unrealized P&L",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "kryor_unrealized_pnl_usd", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background" }
+    },
+    {
+      "title": "Realized P&L (cum)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "kryor_realized_pnl_total_usd_total", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background" }
+    },
+
+    {
+      "title": "Drawdown",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 4 },
+      "targets": [{ "expr": "kryor_drawdown_pct", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 0.2,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 0.03 },
+            { "color": "orange", "value": 0.08 },
+            { "color": "red", "value": 0.15 }
+          ]}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Circuit Breaker",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 4 },
+      "targets": [{ "expr": "kryor_circuit_breaker_level", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "L1 TRADE", "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "L2 DAILY", "color": "orange" } } },
+            { "type": "value", "options": { "3": { "text": "L3 WEEKLY", "color": "red" } } },
+            { "type": "value", "options": { "4": { "text": "L4 HALTED", "color": "dark-red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "orange", "value": 2 },
+            { "color": "red", "value": 3 },
+            { "color": "dark-red", "value": 4 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "title": "Regime",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 4 },
+      "targets": [{ "expr": "kryor_regime", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "BULL", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "NEUTRAL", "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "BEAR", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 2 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "title": "Open Positions",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 4 },
+      "targets": [{ "expr": "kryor_open_positions", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "thresholds": { "mode": "absolute", "steps": [
+          { "color": "blue", "value": null },
+          { "color": "orange", "value": 8 },
+          { "color": "red", "value": 10 }
+        ]}},
+        "overrides": []
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "title": "Total Exposure",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 4 },
+      "targets": [{ "expr": "kryor_total_exposure_usd", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "title": "Cash",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 4 },
+      "targets": [{ "expr": "kryor_cash_usd", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] },
+      "options": { "colorMode": "background" }
+    },
+
+    {
+      "title": "Equity Curve",
       "type": "timeseries",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "targets": [
+        { "expr": "kryor_equity_usd", "legendFormat": "Equity", "refId": "A" },
+        { "expr": "kryor_cash_usd", "legendFormat": "Cash", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Daily P&L (Time Series)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "targets": [{ "expr": "kryor_daily_pnl_usd", "legendFormat": "Daily P&L", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": { "lineWidth": 2, "fillOpacity": 25, "thresholdsStyle": { "mode": "area" } },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null }, { "color": "green", "value": 0 }
+          ]}
+        },
+        "overrides": []
+      }
+    },
+
+    {
+      "title": "Trade Actions",
+      "type": "text",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 17 },
+      "options": {
+        "mode": "html",
+        "content": "<div style='display:flex;gap:8px;flex-wrap:wrap;padding:8px;align-items:center'><a href='http://localhost:8001/docs#/default/submit_trade_api_trade_post' target='_blank' style='padding:10px 20px;background:#2d7d2d;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>BUY</a><a href='http://localhost:8001/docs#/default/submit_trade_api_trade_post' target='_blank' style='padding:10px 20px;background:#c62828;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>SELL</a><a href='http://localhost:8001/docs#/default/close_all_api_close_all_post' target='_blank' style='padding:10px 20px;background:#e65100;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>CLOSE ALL</a><a href='http://localhost:8001/docs#/default/cancel_all_orders_api_cancel_all_post' target='_blank' style='padding:10px 20px;background:#555;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>CANCEL ALL</a><a href='http://localhost:8001/docs#/default/pause_trading_api_pause_post' target='_blank' style='padding:10px 20px;background:#f57f17;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>PAUSE</a><a href='http://localhost:8001/docs#/default/resume_trading_api_resume_post' target='_blank' style='padding:10px 20px;background:#1565c0;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>RESUME</a><a href='http://localhost:8001/api/status' target='_blank' style='padding:10px 20px;background:#333;color:white;border-radius:4px;text-decoration:none'>STATUS</a><a href='http://localhost:8001/api/positions' target='_blank' style='padding:10px 20px;background:#333;color:white;border-radius:4px;text-decoration:none'>POSITIONS</a><a href='http://localhost:8001/api/orders' target='_blank' style='padding:10px 20px;background:#333;color:white;border-radius:4px;text-decoration:none'>ORDERS</a></div>"
+      }
+    },
+
+    {
+      "title": "Fills (cumulative by side/strategy)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 21 },
+      "targets": [{ "expr": "kryor_fills_total", "legendFormat": "{{side}} / {{strategy}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } }, "overrides": [] }
+    },
+    {
+      "title": "Order Submission Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 21 },
+      "targets": [
+        { "expr": "rate(kryor_orders_submitted_total[5m])", "legendFormat": "{{side}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 }, "unit": "ops" }, "overrides": [] }
+    },
+
+    {
+      "title": "Regime Probabilities",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 28 },
+      "targets": [
+        { "expr": "kryor_regime_bull_prob", "legendFormat": "Bull", "refId": "A" },
+        { "expr": "kryor_regime_neutral_prob", "legendFormat": "Neutral", "refId": "B" },
+        { "expr": "kryor_regime_bear_prob", "legendFormat": "Bear", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 2, "fillOpacity": 15 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Bull" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Neutral" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Bear" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      }
+    },
+    {
+      "title": "Slippage Distribution (bps)",
+      "type": "histogram",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 28 },
+      "targets": [
+        { "expr": "rate(kryor_slippage_bps_bucket[15m])", "legendFormat": "{{le}}", "refId": "A", "format": "heatmap" }
+      ],
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+
+    {
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 34 },
+      "targets": [{ "expr": "kryor_uptime_seconds", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "title": "Fill Value Distribution",
+      "type": "histogram",
+      "gridPos": { "h": 4, "w": 18, "x": 6, "y": 34 },
+      "targets": [{ "expr": "rate(kryor_fill_value_usd_bucket[15m])", "legendFormat": "{{le}}", "refId": "A", "format": "heatmap" }],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] }
+    },
+
+    {
+      "title": "Price Chart ($symbol)",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 38 },
       "datasource": "QuestDB",
       "targets": [
         {
@@ -43,7 +329,7 @@
     {
       "title": "Volume",
       "type": "barchart",
-      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 10 },
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 48 },
       "datasource": "QuestDB",
       "targets": [
         {
@@ -59,162 +345,6 @@
         },
         "overrides": []
       }
-    },
-    {
-      "title": "Equity",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
-      "targets": [
-        { "expr": "kryor_equity_usd", "legendFormat": "Equity", "refId": "A" },
-        { "expr": "kryor_cash_usd", "legendFormat": "Cash", "refId": "B" }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "custom": { "lineWidth": 2, "fillOpacity": 10 }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Daily P&L",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
-      "targets": [
-        { "expr": "kryor_daily_pnl_usd", "legendFormat": "Daily P&L", "refId": "A" }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "custom": { "lineWidth": 2, "fillOpacity": 20, "thresholdsStyle": { "mode": "area" } },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0 }] }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Drawdown",
-      "type": "gauge",
-      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 23 },
-      "targets": [{ "expr": "kryor_drawdown_pct", "refId": "A" }],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit", "min": 0, "max": 0.2,
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.03 }, { "color": "orange", "value": 0.08 }, { "color": "red", "value": 0.15 }] }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Regime",
-      "type": "stat",
-      "gridPos": { "h": 6, "w": 4, "x": 4, "y": 23 },
-      "targets": [{ "expr": "kryor_regime", "refId": "A" }],
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            { "type": "value", "options": { "0": { "text": "BULL", "color": "green" } } },
-            { "type": "value", "options": { "1": { "text": "NEUTRAL", "color": "yellow" } } },
-            { "type": "value", "options": { "2": { "text": "BEAR", "color": "red" } } }
-          ],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "red", "value": 2 }] }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Regime Probabilities",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 23 },
-      "targets": [
-        { "expr": "kryor_regime_bull_prob", "legendFormat": "Bull", "refId": "A" },
-        { "expr": "kryor_regime_neutral_prob", "legendFormat": "Neutral", "refId": "B" },
-        { "expr": "kryor_regime_bear_prob", "legendFormat": "Bear", "refId": "C" }
-      ],
-      "fieldConfig": {
-        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 2, "fillOpacity": 15 } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "Bull" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "Neutral" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "Bear" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
-        ]
-      }
-    },
-    {
-      "title": "Circuit Breaker",
-      "type": "stat",
-      "gridPos": { "h": 6, "w": 4, "x": 16, "y": 23 },
-      "targets": [{ "expr": "kryor_circuit_breaker_level", "refId": "A" }],
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            { "type": "value", "options": { "0": { "text": "OK", "color": "green" } } },
-            { "type": "value", "options": { "1": { "text": "L1 TRADE", "color": "yellow" } } },
-            { "type": "value", "options": { "2": { "text": "L2 DAILY", "color": "orange" } } },
-            { "type": "value", "options": { "3": { "text": "L3 WEEKLY", "color": "red" } } },
-            { "type": "value", "options": { "4": { "text": "L4 HALTED", "color": "dark-red" } } }
-          ],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1 }, { "color": "orange", "value": 2 }, { "color": "red", "value": 3 }, { "color": "dark-red", "value": 4 }] }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Uptime",
-      "type": "stat",
-      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 23 },
-      "targets": [{ "expr": "kryor_uptime_seconds", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
-    },
-    {
-      "title": "Open Positions",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 29 },
-      "targets": [{ "expr": "kryor_open_positions", "refId": "A" }],
-      "fieldConfig": {
-        "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }, { "color": "orange", "value": 8 }, { "color": "red", "value": 10 }] } },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Total Exposure",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 29 },
-      "targets": [{ "expr": "kryor_total_exposure_usd", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] }
-    },
-    {
-      "title": "Unrealized P&L",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 29 },
-      "targets": [{ "expr": "kryor_unrealized_pnl_usd", "refId": "A" }],
-      "fieldConfig": {
-        "defaults": { "unit": "currencyUSD", "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 0 }] } },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Trade Actions",
-      "type": "text",
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 29 },
-      "options": {
-        "mode": "html",
-        "content": "<div style='display:flex;gap:8px;flex-wrap:wrap;padding:8px'><a href='http://localhost:8001/docs#/default/submit_trade_api_trade_post' target='_blank' style='padding:8px 16px;background:#2d7d2d;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>BUY</a><a href='http://localhost:8001/docs#/default/submit_trade_api_trade_post' target='_blank' style='padding:8px 16px;background:#c62828;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>SELL</a><a href='http://localhost:8001/docs#/default/close_all_api_close_all_post' target='_blank' style='padding:8px 16px;background:#e65100;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>CLOSE ALL</a><a href='http://localhost:8001/docs#/default/cancel_all_orders_api_cancel_all_post' target='_blank' style='padding:8px 16px;background:#555;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>CANCEL ALL</a><a href='http://localhost:8001/docs#/default/pause_trading_api_pause_post' target='_blank' style='padding:8px 16px;background:#f57f17;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>PAUSE</a><a href='http://localhost:8001/docs#/default/resume_trading_api_resume_post' target='_blank' style='padding:8px 16px;background:#1565c0;color:white;border-radius:4px;text-decoration:none;font-weight:bold'>RESUME</a><a href='http://localhost:8001/api/status' target='_blank' style='padding:8px 16px;background:#333;color:white;border-radius:4px;text-decoration:none'>STATUS JSON</a><a href='http://localhost:8001/api/positions' target='_blank' style='padding:8px 16px;background:#333;color:white;border-radius:4px;text-decoration:none'>POSITIONS</a><a href='http://localhost:8001/api/orders' target='_blank' style='padding:8px 16px;background:#333;color:white;border-radius:4px;text-decoration:none'>ORDERS</a></div>"
-      }
-    },
-    {
-      "title": "Fills (cumulative)",
-      "type": "timeseries",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 33 },
-      "targets": [{ "expr": "kryor_fills_total", "legendFormat": "{{side}} / {{strategy}}", "refId": "A" }],
-      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2 } }, "overrides": [] }
-    },
-    {
-      "title": "Fill Value Distribution",
-      "type": "histogram",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 33 },
-      "targets": [{ "expr": "rate(kryor_fill_value_usd_bucket[5m])", "legendFormat": "{{le}}", "refId": "A", "format": "heatmap" }],
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" }, "overrides": [] }
     }
   ],
   "refresh": "10s",
@@ -242,10 +372,10 @@
       }
     ]
   },
-  "time": { "from": "now-90d", "to": "now" },
+  "time": { "from": "now-24h", "to": "now" },
   "timepicker": {},
   "timezone": "",
   "title": "KRYOR Trade Engine",
   "uid": "kryor-trade-engine",
-  "version": 2
+  "version": 3
 }

@@ -34,6 +34,7 @@ from kryor.regime.hmm_backtest import RegimeBacktestActor, RegimeBacktestConfig
 from kryor.risk.circuit_breaker import CircuitBreakerActor, CircuitBreakerConfig
 from kryor.strategy.momentum import MomentumConfig, MomentumStrategy
 from kryor.strategy.mean_reversion import MeanReversionConfig, MeanReversionStrategy
+from kryor.strategy.ml_signal import MLSignalConfig, MLSignalStrategy
 
 VENUE = Venue("ALPACA")
 USD = Currency.from_str("USD")
@@ -174,6 +175,17 @@ def main() -> None:
         ),
     )
     engine.add_strategy(mean_rev)
+
+    ml_signal = MLSignalStrategy(
+        config=MLSignalConfig(
+            strategy_id="ML-BT",
+            symbols=args.symbols,
+            model_path="models/lgbm_signal_v1.pkl",
+            buy_threshold=0.45,
+            max_hold_days=10,
+        ),
+    )
+    engine.add_strategy(ml_signal)
 
     # ── Run ───────────────────────────────────────────────
 

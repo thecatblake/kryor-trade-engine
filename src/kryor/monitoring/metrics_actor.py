@@ -35,7 +35,13 @@ from kryor.core.custom_data import CircuitBreakerData, RegimeData
 equity = Gauge("kryor_equity_usd", "Current account equity in USD")
 cash = Gauge("kryor_cash_usd", "Current available cash in USD")
 unrealized_pnl = Gauge("kryor_unrealized_pnl_usd", "Total unrealized P&L")
-realized_pnl_total = Counter("kryor_realized_pnl_total_usd", "Cumulative realized P&L")
+realized_pnl_total = Gauge("kryor_realized_pnl_total_usd", "Cumulative realized P&L (gauge)")
+trades_won = Counter("kryor_trades_won_total", "Total winning trades")
+trades_lost = Counter("kryor_trades_lost_total", "Total losing trades")
+last_trade_pnl = Gauge("kryor_last_trade_pnl_usd", "Last closed trade P&L")
+win_rate = Gauge("kryor_win_rate_pct", "Win rate percentage")
+avg_win = Gauge("kryor_avg_win_usd", "Average winning trade P&L")
+avg_loss = Gauge("kryor_avg_loss_usd", "Average losing trade P&L (positive value)")
 daily_pnl = Gauge("kryor_daily_pnl_usd", "P&L since start of day")
 drawdown = Gauge("kryor_drawdown_pct", "Current drawdown from peak equity")
 
@@ -86,6 +92,11 @@ class MetricsActor(Actor):
         self._day_start_equity: float = 0
         self._daily_returns: deque[float] = deque(maxlen=30)
         self._last_equity: float = 0
+        self._cum_realized_pnl: float = 0.0
+        self._wins_total: float = 0.0
+        self._losses_total: float = 0.0
+        self._wins_count: int = 0
+        self._losses_count: int = 0
 
     def on_start(self) -> None:
         self._start_time = time.time()
@@ -147,6 +158,31 @@ class MetricsActor(Actor):
         )
 
     def _on_position_event(self, event) -> None:
+        if isinstance(event, PositionClosed):
+            try:
+                pnl = float(event.realized_pnl) if event.realized_pnl else 0
+                self._cum_realized_pnl += pnl
+                last_trade_pnl.set(pnl)
+                realized_pnl_total.set(self._cum_realized_pnl)
+
+                if pnl > 0:
+                    self._wins_count += 1
+                    self._wins_total += pnl
+                    trades_won.inc()
+                elif pnl < 0:
+                    self._losses_count += 1
+                    self._losses_total += abs(pnl)
+                    trades_lost.inc()
+
+                total = self._wins_count + self._losses_count
+                if total > 0:
+                    win_rate.set(self._wins_count / total * 100)
+                if self._wins_count > 0:
+                    avg_win.set(self._wins_total / self._wins_count)
+                if self._losses_count > 0:
+                    avg_loss.set(self._losses_total / self._losses_count)
+            except Exception as e:
+                self.log.warning(f"PnL metric update failed: {e}")
         self._sync_positions()
 
     def _on_account_state(self, event: AccountState) -> None:
