@@ -39,6 +39,7 @@ from kryor.regime.hmm import RegimeActor, RegimeActorConfig
 from kryor.risk.circuit_breaker import CircuitBreakerActor, CircuitBreakerConfig
 from kryor.strategy.momentum import MomentumConfig, MomentumStrategy
 from kryor.strategy.mean_reversion import MeanReversionConfig, MeanReversionStrategy
+from kryor.strategy.ml_signal import MLSignalConfig, MLSignalStrategy
 
 # ── Universe ──────────────────────────────────────────────────
 
@@ -137,8 +138,21 @@ def main() -> None:
         ),
     )
 
+    ml_signal = MLSignalStrategy(
+        config=MLSignalConfig(
+            strategy_id="ML-001",
+            symbols=UNIVERSE,
+            alpaca_api_key=api_key,
+            alpaca_secret_key=secret_key,
+            model_path="models/lgbm_signal_v1.pkl",
+            buy_threshold=0.45,
+            max_hold_days=10,
+        ),
+    )
+
     node.trader.add_strategy(momentum)
     node.trader.add_strategy(mean_rev)
+    node.trader.add_strategy(ml_signal)
 
     # ── Actors (order matters: metrics first so it subscribes before regime publishes) ──
 
