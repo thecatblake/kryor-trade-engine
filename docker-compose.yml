@@ -31,19 +31,15 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
+    network_mode: host
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       - questdb
 
   grafana:
     image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
+    network_mode: host
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-kryor_dev}
     volumes:

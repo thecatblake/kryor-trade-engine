@@ -8,14 +8,14 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://localhost:9090
     isDefault: true
     editable: true
 
   - name: QuestDB
     type: postgres
     access: proxy
-    url: questdb:8812
+    url: localhost:8812
     user: kryor
     secureJsonData:
       password: kryor_dev
