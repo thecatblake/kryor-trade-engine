@@ -1,0 +1,17 @@
+[Unit]
+Description=Kryor Trade Engine
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory={{ app_dir }}
+ExecStartPre=/usr/bin/docker compose up -d
+ExecStart={{ app_dir }}/.venv/bin/python scripts/run_paper_trade.py
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

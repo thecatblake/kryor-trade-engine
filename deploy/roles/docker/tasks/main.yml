@@ -1,0 +1,29 @@
+---
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Install Docker
+  when: docker_check.rc != 0
+  block:
+    - name: Download Docker install script
+      get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
+        mode: "0755"
+
+    - name: Run Docker install script
+      command: /tmp/get-docker.sh
+
+    - name: Remove install script
+      file:
+        path: /tmp/get-docker.sh
+        state: absent
+
+- name: Ensure Docker is started and enabled
+  systemd:
+    name: docker
+    state: started
+    enabled: yes

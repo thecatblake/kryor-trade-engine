@@ -1,0 +1,6 @@
+---
+- name: restart engine
+  systemd:
+    name: kryor-engine
+    state: restarted
+    daemon_reload: yes

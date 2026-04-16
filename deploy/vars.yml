@@ -1,0 +1,18 @@
+# ── Server ──
+app_dir: /opt/trade-engine
+repo_url: "https://github.com/YOUR_USER/trade-engine.git"
+repo_branch: main
+
+# ── Alpaca ──
+alpaca_api_key: "YOUR_ALPACA_API_KEY"
+alpaca_secret_key: "YOUR_ALPACA_SECRET_KEY"
+alpaca_paper: "true"
+
+# ── Database ──
+postgres_password: "kryor_prod_{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=12') }}"
+questdb_password: "kryor_prod_{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=12') }}"
+grafana_password: "kryor_prod_{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=12') }}"
+
+# ── Firewall ──
+allowed_ssh_ips:
+  - "0.0.0.0/0"  # 自分のIPに絞ること

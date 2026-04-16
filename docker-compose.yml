@@ -1,0 +1,58 @@
+services:
+  questdb:
+    image: questdb/questdb:latest
+    ports:
+      - "9000:9000"   # Web Console
+      - "8812:8812"   # PostgreSQL wire protocol
+      - "9009:9009"   # InfluxDB Line Protocol
+    volumes:
+      - questdb_data:/var/lib/questdb
+    environment:
+      QDB_CAIRO_COMMIT_LAG: 1000
+      QDB_PG_USER: kryor
+      QDB_PG_PASSWORD: ${QUESTDB_PASSWORD:-kryor_dev}
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kryor_trade
+      POSTGRES_USER: kryor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kryor_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - questdb
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-kryor_dev}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./config/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  questdb_data:
+  postgres_data:
+  grafana_data:

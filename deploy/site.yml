@@ -1,0 +1,9 @@
+---
+- name: Deploy Kryor Trade Engine
+  hosts: trade_engine
+  vars_files:
+    - vars.yml
+  roles:
+    - common
+    - docker
+    - engine

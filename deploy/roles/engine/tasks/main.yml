@@ -1,0 +1,48 @@
+---
+- name: Clone or update repository
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+    version: "{{ repo_branch }}"
+    force: yes
+
+- name: Create .env file
+  template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    mode: "0600"
+
+- name: Start Docker Compose services
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    state: present
+    pull: always
+
+- name: Wait for Docker services to be healthy
+  pause:
+    seconds: 10
+
+- name: Create Python venv
+  command: python3 -m venv {{ app_dir }}/.venv
+  args:
+    creates: "{{ app_dir }}/.venv/bin/python"
+
+- name: Install Python dependencies
+  pip:
+    name: "."
+    extra_args: "-e"
+    virtualenv: "{{ app_dir }}/.venv"
+    chdir: "{{ app_dir }}"
+
+- name: Install systemd service
+  template:
+    src: kryor-engine.service.j2
+    dest: /etc/systemd/system/kryor-engine.service
+  notify: restart engine
+
+- name: Enable and start engine service
+  systemd:
+    name: kryor-engine
+    enabled: yes
+    state: started
+    daemon_reload: yes

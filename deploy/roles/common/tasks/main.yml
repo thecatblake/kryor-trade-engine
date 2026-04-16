@@ -1,0 +1,50 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name:
+      - git
+      - python3
+      - python3-venv
+      - python3-pip
+      - ufw
+      - curl
+      - htop
+    state: present
+
+- name: Configure UFW defaults
+  ufw:
+    direction: incoming
+    policy: deny
+
+- name: Allow SSH
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+    src: "{{ item }}"
+  loop: "{{ allowed_ssh_ips }}"
+
+- name: Allow Grafana
+  ufw:
+    rule: allow
+    port: "3000"
+    proto: tcp
+
+- name: Allow Trade API
+  ufw:
+    rule: allow
+    port: "8001"
+    proto: tcp
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+- name: Set timezone to UTC
+  timezone:
+    name: UTC
