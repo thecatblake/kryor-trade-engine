@@ -31,7 +31,10 @@ DEFAULT_SYMBOLS = [
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train LightGBM signal model")
     parser.add_argument("--symbols", nargs="+", default=DEFAULT_SYMBOLS)
-    parser.add_argument("--years", type=int, default=5)
+    parser.add_argument("--start", type=str, default="2015-01-01",
+                        help="Training data start date (YYYY-MM-DD)")
+    parser.add_argument("--end", type=str, default="2022-12-31",
+                        help="Training data end date (YYYY-MM-DD) — must NOT overlap backtest period")
     parser.add_argument("--horizon", type=int, default=5,
                         help="Days ahead for return target")
     parser.add_argument("--threshold", type=float, default=0.01,
@@ -42,8 +45,8 @@ def main() -> None:
     project_root = Path(__file__).parent.parent
     output_path = project_root / args.output
 
-    print(f"Fetching {args.years} years of data for {len(args.symbols)} symbols...")
-    raw = fetch_training_data(args.symbols, years=args.years)
+    print(f"Fetching {args.start} → {args.end} for {len(args.symbols)} symbols...")
+    raw = fetch_training_data(args.symbols, start=args.start, end=args.end)
     print(f"Total raw rows: {len(raw)}")
 
     print(f"\nBuilding features (horizon={args.horizon}d, threshold={args.threshold})...")
@@ -61,7 +64,7 @@ def main() -> None:
     )[:10]:
         print(f"  {name:25s} {imp}")
 
-    save_model(model, metrics, output_path)
+    save_model(model, metrics, output_path, train_start=args.start, train_end=args.end)
     print(f"\nDone. Model saved: {output_path}")
 
 

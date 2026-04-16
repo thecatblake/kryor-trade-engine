@@ -39,16 +39,30 @@ DEFAULT_PARAMS = {
 }
 
 
-def fetch_training_data(symbols: list[str], years: int = 5) -> pd.DataFrame:
-    """Fetch OHLCV data for multiple symbols."""
-    end = datetime.now()
+def fetch_training_data(
+    symbols: list[str],
+    start: str | None = None,
+    end: str | None = None,
+    years: int | None = None,
+) -> pd.DataFrame:
+    """Fetch OHLCV data for multiple symbols.
+
+    Use either (start, end) date strings OR years (last N years).
+    """
     from datetime import timedelta
-    start = end - timedelta(days=years * 365)
+    if start and end:
+        start_dt = datetime.fromisoformat(start) if isinstance(start, str) else start
+        end_dt = datetime.fromisoformat(end) if isinstance(end, str) else end
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=(years or 5) * 365)
+
+    print(f"Fetching from {start_dt.date()} to {end_dt.date()}")
 
     frames = []
     for sym in symbols:
         try:
-            df = yf.Ticker(sym).history(start=start, end=end, auto_adjust=True)
+            df = yf.Ticker(sym).history(start=start_dt, end=end_dt, auto_adjust=True)
             if df.empty:
                 continue
             df = df.reset_index()
@@ -127,7 +141,13 @@ def walk_forward_train(
     return final_model, metrics
 
 
-def save_model(model: lgb.LGBMClassifier, metrics: dict, path: str | Path) -> None:
+def save_model(
+    model: lgb.LGBMClassifier,
+    metrics: dict,
+    path: str | Path,
+    train_start: str | None = None,
+    train_end: str | None = None,
+) -> None:
     """Save model + metadata to disk."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,11 +157,13 @@ def save_model(model: lgb.LGBMClassifier, metrics: dict, path: str | Path) -> No
         "feature_cols": FEATURE_COLS,
         "metrics": metrics,
         "trained_at": datetime.now().isoformat(),
-        "version": "1.0",
+        "train_start": train_start,
+        "train_end": train_end,
+        "version": "1.1",
     }
     with open(path, "wb") as f:
         pickle.dump(bundle, f)
-    print(f"Saved model to {path}")
+    print(f"Saved model to {path} (train period: {train_start} → {train_end})")
 
 
 def load_model(path: str | Path) -> dict:

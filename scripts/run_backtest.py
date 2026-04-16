@@ -97,6 +97,30 @@ def main() -> None:
 
     # ── Engine setup ──────────────────────────────────────
 
+    # ── Lookahead leak check for ML model ─────────────────
+    from pathlib import Path as _Path
+    model_path = _Path(__file__).parent.parent / "models" / "lgbm_signal_v1.pkl"
+    if model_path.exists():
+        try:
+            from kryor.ml.trainer import load_model
+            bundle = load_model(model_path)
+            train_end = bundle.get("train_end")
+            if train_end:
+                train_end_dt = datetime.fromisoformat(train_end)
+                if start < train_end_dt:
+                    print("\n" + "!" * 70)
+                    print(f"⚠️  LOOKAHEAD LEAK WARNING")
+                    print(f"    Model trained until: {train_end}")
+                    print(f"    Backtest starts at:  {start.date()}")
+                    print(f"    Backtest period must START AFTER training END.")
+                    print("!" * 70 + "\n")
+                    if input("Continue anyway? (yes/no): ").lower() != "yes":
+                        sys.exit(1)
+                else:
+                    print(f"\n✓ ML lookahead-safe: trained until {train_end}, backtest from {start.date()}")
+        except Exception as e:
+            print(f"Could not verify model train period: {e}")
+
     engine = BacktestEngine(
         config=BacktestEngineConfig(
             trader_id="KRYOR-BT-001",
@@ -181,7 +205,7 @@ def main() -> None:
             strategy_id="ML-BT",
             symbols=args.symbols,
             model_path="models/lgbm_signal_v1.pkl",
-            buy_threshold=0.45,
+            buy_threshold=0.55,  # 高信頼度のみ
             max_hold_days=10,
         ),
     )

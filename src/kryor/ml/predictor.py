@@ -20,6 +20,8 @@ class MLPredictor:
         self.feature_cols = bundle["feature_cols"]
         self.metrics = bundle["metrics"]
         self.trained_at = bundle["trained_at"]
+        self.train_start = bundle.get("train_start")
+        self.train_end = bundle.get("train_end")
 
     def predict_proba(self, features: pd.DataFrame) -> np.ndarray:
         """Returns array of shape (n_samples, 3) with [P(SELL), P(HOLD), P(BUY)]."""
