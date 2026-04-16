@@ -6,7 +6,7 @@ dist/
 .venv/
 *.parquet
 *.csv
-data/
-logs/
+/data/
+/logs/
 *.log
 .DS_Store

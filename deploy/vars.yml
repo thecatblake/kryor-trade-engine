@@ -1,11 +1,11 @@
 # ── Server ──
 app_dir: /opt/trade-engine
-repo_url: "https://github.com/YOUR_USER/trade-engine.git"
+repo_url: "https://github.com/thecatblake/kryor-trade-engine.git"
 repo_branch: main
 
 # ── Alpaca ──
-alpaca_api_key: "YOUR_ALPACA_API_KEY"
-alpaca_secret_key: "YOUR_ALPACA_SECRET_KEY"
+alpaca_api_key: "PK7FVGGIHL5RUJ6TTIOGJVUNQB"
+alpaca_secret_key: "9U3hLn5tcS9SrbZupbND1JQtE7JpyC7znep2KAdY1j4M"
 alpaca_paper: "true"
 
 # ── Database ──
