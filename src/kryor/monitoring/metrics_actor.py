@@ -23,6 +23,9 @@ from nautilus_trader.model.events import (
 )
 
 from kryor.adapters.alpaca.constants import ALPACA_VENUE
+from nautilus_trader.model.objects import Currency
+
+_USD_CURRENCY = Currency.from_str("USD")
 from kryor.core.custom_data import CircuitBreakerData, RegimeData
 
 
@@ -186,7 +189,7 @@ class MetricsActor(Actor):
         account = self.portfolio.account(ALPACA_VENUE)
         if account is None:
             return
-        eq = float(account.balance_total(account.base_currency))
+        eq = float(account.balance_total(account.base_currency or _USD_CURRENCY))
         equity.set(eq)
 
         if eq > self._peak_equity:

@@ -24,6 +24,9 @@ from nautilus_trader.model.objects import Price, Quantity
 from nautilus_trader.trading.strategy import Strategy
 
 from kryor.adapters.alpaca.constants import ALPACA_VENUE
+from nautilus_trader.model.objects import Currency
+
+_USD_CURRENCY = Currency.from_str("USD")
 from kryor.core.custom_data import RegimeData, RegimeEnum
 
 
@@ -50,16 +53,40 @@ class MeanReversionStrategy(Strategy):
         self._regime = RegimeEnum.NEUTRAL
         self._regime_kelly = 0.25
         self._bars: dict[str, deque[Bar]] = {}
-        self._entry_bars: dict[str, int] = {}  # symbol → bar count at entry
+        self._entry_bars: dict[str, int] = {}
+        self._stop_loss: dict[str, float] = {}  # symbol → stop price
         self._total_bars = 0
+        self._cb_level: int = 0
+
+    def _on_circuit_breaker(self, data) -> None:
+        self._cb_level = data.level
+        self.log.warning(f"CB L{data.level} received: {data.reason}")
+        if data.level >= 3:
+            for position in self.cache.positions_open(strategy_id=self.id):
+                self.close_position(position)
+            self._stop_loss.clear()
+            self._entry_bars.clear()
 
     def _on_regime_update(self, data: RegimeData) -> None:
+        prev = self._regime
         self._regime = data.regime
         self._regime_kelly = data.kelly_fraction
+
+        # BEAR移行時: 全ポジション強制決済
+        if data.regime == RegimeEnum.BEAR and prev != RegimeEnum.BEAR:
+            closed = 0
+            for position in self.cache.positions_open(strategy_id=self.id):
+                self.close_position(position)
+                closed += 1
+            self._stop_loss.clear()
+            self._entry_bars.clear()
+            if closed > 0:
+                self.log.warning(f"Closed {closed} positions: BEAR regime")
 
     def on_start(self) -> None:
         self.log.info("MeanReversionStrategy starting — preloading historical data")
         self.msgbus.subscribe("regime.update", self._on_regime_update)
+        self.msgbus.subscribe("circuit_breaker.update", self._on_circuit_breaker)
 
         # Preload historical bars
         if self._config.alpaca_api_key:
@@ -104,14 +131,35 @@ class MeanReversionStrategy(Strategy):
         self._bars[sym].append(bar)
         self._total_bars += 1
 
+        # [1] ストップロスチェック(毎バー、BEARでも)
+        self._check_stop_loss(sym, float(bar.close))
+
         if self._regime == RegimeEnum.BEAR:
             return
 
-        # Check exit conditions for open positions
+        # [2] エグジットチェック(RSI>50, 5日経過)
         self._check_exits(sym)
 
-        # Check entry conditions
+        # CB Level 2以上なら新規エントリー停止
+        if self._cb_level >= 2:
+            return
+
+        # [3] エントリーチェック
         self._check_entry(sym)
+
+    def _check_stop_loss(self, sym: str, current_price: float) -> None:
+        stop = self._stop_loss.get(sym)
+        if stop is None:
+            return
+        if current_price <= stop:
+            instrument_id = InstrumentId.from_str(f"{sym}.ALPACA")
+            for position in self.cache.positions_open(strategy_id=self.id):
+                if position.instrument_id == instrument_id:
+                    self.close_position(position)
+                    self.log.warning(f"MR STOP LOSS {sym} @ ${current_price:.2f} (stop=${stop:.2f})")
+                    self._stop_loss.pop(sym, None)
+                    self._entry_bars.pop(sym, None)
+                    return
 
     def _check_entry(self, sym: str) -> None:
         bars = self._bars[sym]
@@ -152,7 +200,7 @@ class MeanReversionStrategy(Strategy):
         account = self.portfolio.account(ALPACA_VENUE)
         if account is None:
             return
-        equity = float(account.balance_total(account.base_currency))
+        equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
         stop_distance = atr * 2
         risk_amount = equity * self._config.risk_per_trade_pct * self._regime_kelly * 2
         shares = int(risk_amount / stop_distance)
@@ -174,7 +222,10 @@ class MeanReversionStrategy(Strategy):
         )
         self.submit_order(order)
         self._entry_bars[sym] = self._total_bars
-        self.log.info(f"MR BUY {shares} {sym} @ ${price:.2f} (RSI={rsi:.1f})")
+        self._stop_loss[sym] = price - stop_distance
+        self.log.info(
+            f"MR BUY {shares} {sym} @ ${price:.2f} (RSI={rsi:.1f}, stop=${self._stop_loss[sym]:.2f})"
+        )
 
     def _check_exits(self, sym: str) -> None:
         instrument_id = InstrumentId.from_str(f"{sym}.ALPACA")
@@ -190,17 +241,19 @@ class MeanReversionStrategy(Strategy):
 
         # Exit: RSI > 50 (mean reversion complete)
         if rsi > 50:
-            self.close_position(instrument_id)
+            self.close_all_positions(instrument_id)
             self.log.info(f"MR EXIT {sym}: RSI={rsi:.1f} > 50")
             self._entry_bars.pop(sym, None)
+            self._stop_loss.pop(sym, None)
             return
 
         # Exit: max hold days
         entry_bar = self._entry_bars.get(sym, 0)
         if self._total_bars - entry_bar >= self._config.max_hold_days:
-            self.close_position(instrument_id)
+            self.close_all_positions(instrument_id)
             self.log.info(f"MR EXIT {sym}: max hold {self._config.max_hold_days} days")
             self._entry_bars.pop(sym, None)
+            self._stop_loss.pop(sym, None)
 
     def on_stop(self) -> None:
         for sym in self._config.symbols:

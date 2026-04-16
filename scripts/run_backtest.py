@@ -30,6 +30,8 @@ from nautilus_trader.model.identifiers import InstrumentId, Symbol, Venue
 from nautilus_trader.model.instruments import Equity
 from nautilus_trader.model.objects import Currency, Money, Price, Quantity
 
+from kryor.regime.hmm_backtest import RegimeBacktestActor, RegimeBacktestConfig
+from kryor.risk.circuit_breaker import CircuitBreakerActor, CircuitBreakerConfig
 from kryor.strategy.momentum import MomentumConfig, MomentumStrategy
 from kryor.strategy.mean_reversion import MeanReversionConfig, MeanReversionStrategy
 
@@ -121,6 +123,33 @@ def main() -> None:
     engine.add_data(all_bars)
     print(f"Total: {len(all_bars)} bars loaded")
 
+    # ── Regime Actor ──────────────────────────────────────
+
+    regime = RegimeBacktestActor(
+        config=RegimeBacktestConfig(
+            component_id="REGIME-BT",
+            start_date=start.strftime("%Y-%m-%d"),
+            end_date=end.strftime("%Y-%m-%d"),
+            lookback_days=252,
+            fit_samples=500,
+        ),
+    )
+    engine.add_actor(regime)
+
+    # ── Circuit Breaker Actor ─────────────────────────────
+
+    cb = CircuitBreakerActor(
+        config=CircuitBreakerConfig(
+            component_id="CB-BT",
+            daily_loss_limit_pct=0.03,
+            weekly_dd_limit_pct=0.08,
+            monthly_dd_limit_pct=0.15,
+            max_daily_trades=20,
+            max_consecutive_losses=5,
+        ),
+    )
+    engine.add_actor(cb)
+
     # ── Strategies ────────────────────────────────────────
 
     momentum = MomentumStrategy(
@@ -157,24 +186,137 @@ def main() -> None:
     print("BACKTEST RESULTS")
     print("=" * 60)
 
-    # Account report
-    for report in engine.trader.generate_account_report(VENUE):
-        print(report)
+    # Final account
+    account = engine.trader.generate_account_report(VENUE)
+    final_equity = args.capital
+    if account is not None and not account.empty:
+        final_equity = float(account.iloc[-1]["total"]) if "total" in account.columns else args.capital
+        total_return = (final_equity - args.capital) / args.capital * 100
+        print(f"\nStarting capital: ${args.capital:,.2f}")
+        print(f"Final equity:     ${final_equity:,.2f}")
+        print(f"Total return:     {total_return:+.2f}%")
+        print(f"Period:           {args.years} years")
+        print(f"Annualized:       {((final_equity / args.capital) ** (1 / args.years) - 1) * 100:+.2f}%")
 
-    # Order fills
     fills = engine.trader.generate_order_fills_report()
     if fills is not None and not fills.empty:
         print(f"\nTotal fills: {len(fills)}")
-        print(fills.tail(10))
 
-    # Position report
     positions = engine.trader.generate_positions_report()
+    win_rate = 0.0
+    closed_pnl = None
     if positions is not None and not positions.empty:
-        print(f"\nPositions: {len(positions)}")
-        print(positions)
+        closed = positions[positions["is_closed"] == True] if "is_closed" in positions.columns else positions
+        if len(closed) > 0 and "realized_pnl" in closed.columns:
+            closed_pnl = closed["realized_pnl"].apply(
+                lambda x: float(str(x).split()[0]) if x else 0.0
+            )
+            wins = closed_pnl[closed_pnl > 0]
+            losses = closed_pnl[closed_pnl < 0]
+            win_rate = len(wins) / len(closed) * 100 if len(closed) else 0.0
+            print(f"\nClosed positions: {len(closed)}")
+            print(f"  Wins:    {len(wins)} (avg +${wins.mean():.2f})" if len(wins) else "  Wins:    0")
+            print(f"  Losses:  {len(losses)} (avg -${abs(losses.mean()):.2f})" if len(losses) else "  Losses:  0")
+            print(f"  Win rate: {win_rate:.1f}%")
+            print(f"  Total P&L: ${closed_pnl.sum():+,.2f}")
+
+    # ── Generate chart image ──────────────────────────────
+    try:
+        _plot_results(account, fills, closed_pnl, args.capital, final_equity, args.years, win_rate)
+    except Exception as e:
+        print(f"\nChart generation failed: {e}")
 
     engine.dispose()
     print("\nBacktest complete.")
+
+
+def _plot_results(account, fills, closed_pnl, capital, final_equity, years, win_rate):
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    import pandas as pd
+    from pathlib import Path
+
+    out_dir = Path(__file__).parent.parent / "data"
+    out_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"backtest_{timestamp}.png"
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+    fig.suptitle(
+        f"KRYOR Backtest — {years}yr | Return: {(final_equity/capital - 1)*100:+.2f}% "
+        f"| Win Rate: {win_rate:.1f}%",
+        fontsize=14, fontweight="bold",
+    )
+
+    # [1] Equity curve
+    ax = axes[0, 0]
+    if account is not None and not account.empty and "total" in account.columns:
+        equity_series = account["total"].astype(float)
+        ax.plot(equity_series.index, equity_series.values, color="#2d7d2d", linewidth=2)
+        ax.axhline(y=capital, color="gray", linestyle="--", alpha=0.5, label=f"Initial ${capital:,.0f}")
+        ax.fill_between(equity_series.index, capital, equity_series.values,
+                         where=equity_series.values >= capital,
+                         color="green", alpha=0.15)
+        ax.fill_between(equity_series.index, capital, equity_series.values,
+                         where=equity_series.values < capital,
+                         color="red", alpha=0.15)
+        ax.legend()
+    ax.set_title("Equity Curve")
+    ax.set_ylabel("USD")
+    ax.grid(alpha=0.3)
+
+    # [2] Drawdown
+    ax = axes[0, 1]
+    if account is not None and not account.empty and "total" in account.columns:
+        equity = account["total"].astype(float)
+        peak = equity.cummax()
+        dd = (equity - peak) / peak * 100
+        ax.fill_between(dd.index, dd.values, 0, color="red", alpha=0.4)
+        ax.plot(dd.index, dd.values, color="darkred", linewidth=1)
+        max_dd = dd.min()
+        ax.axhline(y=max_dd, color="darkred", linestyle="--", alpha=0.7,
+                   label=f"Max DD: {max_dd:.2f}%")
+        ax.legend()
+    ax.set_title("Drawdown")
+    ax.set_ylabel("%")
+    ax.grid(alpha=0.3)
+
+    # [3] P&L distribution
+    ax = axes[1, 0]
+    if closed_pnl is not None and len(closed_pnl) > 0:
+        wins = closed_pnl[closed_pnl > 0].values
+        losses = closed_pnl[closed_pnl < 0].values
+        bins = 30
+        ax.hist(wins, bins=bins, color="green", alpha=0.6, label=f"Wins ({len(wins)})", edgecolor="darkgreen")
+        ax.hist(losses, bins=bins, color="red", alpha=0.6, label=f"Losses ({len(losses)})", edgecolor="darkred")
+        ax.axvline(x=0, color="black", linewidth=1)
+        ax.legend()
+    ax.set_title("P&L Distribution per Trade")
+    ax.set_xlabel("USD")
+    ax.set_ylabel("Frequency")
+    ax.grid(alpha=0.3)
+
+    # [4] Cumulative realized P&L
+    ax = axes[1, 1]
+    if closed_pnl is not None and len(closed_pnl) > 0:
+        cum_pnl = closed_pnl.cumsum().values
+        ax.plot(range(len(cum_pnl)), cum_pnl,
+                color="#1565c0", linewidth=2, label=f"Cumulative ${cum_pnl[-1]:+,.0f}")
+        ax.axhline(y=0, color="gray", linestyle="--", alpha=0.5)
+        ax.fill_between(range(len(cum_pnl)), 0, cum_pnl,
+                         where=cum_pnl >= 0, color="green", alpha=0.15)
+        ax.fill_between(range(len(cum_pnl)), 0, cum_pnl,
+                         where=cum_pnl < 0, color="red", alpha=0.15)
+        ax.legend()
+    ax.set_title("Cumulative Realized P&L")
+    ax.set_xlabel("Trade #")
+    ax.set_ylabel("USD")
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=120, bbox_inches="tight")
+    plt.close()
+    print(f"\nChart saved: {out_path}")
 
 
 if __name__ == "__main__":

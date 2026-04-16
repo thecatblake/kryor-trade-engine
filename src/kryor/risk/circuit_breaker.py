@@ -13,6 +13,9 @@ from nautilus_trader.config import ActorConfig
 from nautilus_trader.model.events import PositionChanged, PositionClosed, PositionOpened
 
 from kryor.adapters.alpaca.constants import ALPACA_VENUE
+from nautilus_trader.model.objects import Currency
+
+_USD_CURRENCY = Currency.from_str("USD")
 from kryor.core.custom_data import CircuitBreakerData
 
 CB_TOPIC = "circuit_breaker.update"
@@ -48,14 +51,34 @@ class CircuitBreakerActor(Actor):
         # Initialize equity tracking
         account = self.portfolio.account(ALPACA_VENUE)
         if account:
-            equity = float(account.balance_total(account.base_currency))
+            equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
             self._peak_equity = equity
             self._start_of_day_equity = equity
             self._start_of_week_equity = equity
             self._start_of_month_equity = equity
 
+        # Auto-reset timers
+        from datetime import timedelta
+        self.clock.set_timer(
+            name="cb_daily_reset",
+            interval=timedelta(days=1),
+            callback=lambda e: self.reset_daily(),
+        )
+        self.clock.set_timer(
+            name="cb_weekly_reset",
+            interval=timedelta(days=7),
+            callback=lambda e: self.reset_weekly(),
+        )
+        self.clock.set_timer(
+            name="cb_monthly_reset",
+            interval=timedelta(days=30),
+            callback=lambda e: self.reset_monthly(),
+        )
+
+
     def on_event(self, event) -> None:
-        if isinstance(event, (PositionOpened, PositionChanged, PositionClosed)):
+        if isinstance(event, PositionClosed):
+            # 確定損益でのみCB判定
             self._check_limits()
 
         if isinstance(event, PositionClosed):
@@ -70,7 +93,15 @@ class CircuitBreakerActor(Actor):
         account = self.portfolio.account(ALPACA_VENUE)
         if account is None:
             return
-        equity = float(account.balance_total(account.base_currency))
+        equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
+
+        # 初期化が完了していない場合はスキップ
+        if equity <= 0 or self._start_of_day_equity <= 0:
+            self._start_of_day_equity = equity
+            self._start_of_week_equity = equity
+            self._start_of_month_equity = equity
+            self._peak_equity = equity
+            return
 
         if equity > self._peak_equity:
             self._peak_equity = equity
@@ -121,7 +152,7 @@ class CircuitBreakerActor(Actor):
     def reset_daily(self) -> None:
         account = self.portfolio.account(ALPACA_VENUE)
         if account:
-            self._start_of_day_equity = float(account.balance_total(account.base_currency))
+            self._start_of_day_equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
         self._daily_pnl = 0.0
         self._daily_trades = 0
         self._consecutive_losses = 0
@@ -132,7 +163,7 @@ class CircuitBreakerActor(Actor):
     def reset_weekly(self) -> None:
         account = self.portfolio.account(ALPACA_VENUE)
         if account:
-            self._start_of_week_equity = float(account.balance_total(account.base_currency))
+            self._start_of_week_equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
         if self._active_level <= 3:
             self._active_level = 0
         self.log.info("CB: Weekly limits reset")
@@ -140,7 +171,7 @@ class CircuitBreakerActor(Actor):
     def reset_monthly(self) -> None:
         account = self.portfolio.account(ALPACA_VENUE)
         if account:
-            self._start_of_month_equity = float(account.balance_total(account.base_currency))
+            self._start_of_month_equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
         self._active_level = 0
         self._halted = False
         self.log.info("CB: Monthly limits reset")
