@@ -26,6 +26,7 @@ from nautilus_trader.trading.strategy import Strategy
 
 from kryor.adapters.alpaca.constants import ALPACA_VENUE
 from kryor.core.custom_data import RegimeData, RegimeEnum
+from kryor.core.portfolio_config import PortfolioConfig
 from kryor.ml.features import FEATURE_COLS, compute_features
 from kryor.ml.predictor import MLPredictor
 
@@ -60,6 +61,7 @@ class MLSignalStrategy(Strategy):
         self._stop_loss: dict[str, float] = {}
         self._total_bars = 0
         self._predictor: MLPredictor | None = None
+        self._pf_config: PortfolioConfig | None = None
 
     def _on_regime_update(self, data: RegimeData) -> None:
         prev = self._regime
@@ -187,11 +189,17 @@ class MLSignalStrategy(Strategy):
         if signal != "buy":
             return
 
-        # Position sizing
+        # Refresh portfolio config
         account = self.portfolio.account(ALPACA_VENUE)
         if account is None:
             return
         equity = float(account.balance_total(account.base_currency or _USD_CURRENCY))
+        self._pf_config = PortfolioConfig.from_equity(equity)
+
+        # Position count check
+        open_count = len(self.cache.positions_open(strategy_id=self.id))
+        if open_count >= self._pf_config.max_positions:
+            return
 
         price = float(bars[-1].close)
         atr = float(last_row["atr_14_norm"]) * price
@@ -199,21 +207,32 @@ class MLSignalStrategy(Strategy):
             return
 
         stop_distance = self._config.stop_atr_mult * atr
-        risk_amount = equity * self._config.risk_per_trade_pct * self._regime_kelly * 2
-        shares = int(risk_amount / stop_distance)
-        max_shares = int(equity * self._config.max_position_pct / price)
-        shares = min(shares, max_shares)
-        if shares < 1:
+        target_value = self._pf_config.target_position_usd * self._regime_kelly * 2
+        if target_value < self._pf_config.min_position_usd:
+            return
+
+        # 端株 or 整数株
+        if self._pf_config.use_fractional:
+            qty = round(target_value / price, 4)
+            max_qty = round(equity * self._pf_config.max_position_pct / price, 4)
+            qty = min(qty, max_qty)
+        else:
+            qty = int(target_value / price)
+            max_qty = int(equity * self._pf_config.max_position_pct / price)
+            qty = min(qty, max_qty)
+
+        if qty <= 0:
             return
 
         instrument = self.cache.instrument(instrument_id)
         if instrument is None:
             return
 
+        qty_str = f"{qty:.4f}" if self._pf_config.use_fractional else str(int(qty))
         order = self.order_factory.limit(
             instrument_id=instrument_id,
             order_side=OrderSide.BUY,
-            quantity=Quantity.from_int(shares),
+            quantity=Quantity.from_str(qty_str),
             price=Price.from_str(f"{price:.2f}"),
             time_in_force=TimeInForce.DAY,
         )
@@ -221,8 +240,8 @@ class MLSignalStrategy(Strategy):
         self._entry_bars[sym] = self._total_bars
         self._stop_loss[sym] = price - stop_distance
         self.log.info(
-            f"ML BUY {shares} {sym} @ ${price:.2f} "
-            f"(conf={confidence:.2f}, stop=${self._stop_loss[sym]:.2f})"
+            f"ML BUY {qty_str} {sym} @ ${price:.2f} "
+            f"(${target_value:.0f}, conf={confidence:.2f}, stop=${self._stop_loss[sym]:.2f})"
         )
 
     def _check_time_exit(self, sym: str) -> None:

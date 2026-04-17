@@ -183,8 +183,6 @@ def main() -> None:
             symbols=args.symbols,
             lookback_days=252,
             skip_days=21,
-            top_pct=0.10,
-            rebalance_interval_days=21,
         ),
     )
     engine.add_strategy(momentum)

@@ -121,8 +121,6 @@ def main() -> None:
             alpaca_secret_key=secret_key,
             lookback_days=252,
             skip_days=21,
-            top_pct=0.10,
-            rebalance_interval_days=21,
         ),
     )
 
