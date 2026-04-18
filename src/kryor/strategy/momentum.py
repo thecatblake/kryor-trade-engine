@@ -227,6 +227,22 @@ class MomentumStrategy(Strategy):
         if not scores:
             return
 
+        # [1.5] Price filter — 高すぎる銘柄を除外
+        max_price = self._pf_config.max_stock_price
+        filtered_scores = {}
+        for sym, score in scores.items():
+            bars = self._bars[sym]
+            price = float(bars[-1].close) if bars else 0
+            if 0 < price <= max_price:
+                filtered_scores[sym] = score
+        if filtered_scores:
+            removed = len(scores) - len(filtered_scores)
+            if removed > 0:
+                self.log.info(f"Price filter: removed {removed} symbols > ${max_price:.0f}")
+            scores = filtered_scores
+        if not scores:
+            return
+
         # [2] Correlation matrix
         correlations = self._compute_correlations(list(scores.keys()))
 

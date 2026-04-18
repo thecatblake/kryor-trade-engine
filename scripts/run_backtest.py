@@ -36,14 +36,10 @@ from kryor.strategy.momentum import MomentumConfig, MomentumStrategy
 from kryor.strategy.mean_reversion import MeanReversionConfig, MeanReversionStrategy
 from kryor.strategy.ml_signal import MLSignalConfig, MLSignalStrategy
 
+from kryor.core.portfolio_config import PortfolioConfig
+
 VENUE = Venue("ALPACA")
 USD = Currency.from_str("USD")
-
-DEFAULT_SYMBOLS = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META",
-    "JPM", "V", "JNJ", "UNH", "HD", "PG",
-    "SPY",
-]
 
 
 def create_instrument(symbol: str) -> Equity:
@@ -87,13 +83,31 @@ def fetch_bars(symbol: str, start: datetime, end: datetime) -> list[Bar]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run NautilusTrader backtest")
-    parser.add_argument("--symbols", nargs="+", default=DEFAULT_SYMBOLS)
+    parser.add_argument("--symbols", nargs="+", default=None,
+                        help="Override symbols (default: auto from capital)")
     parser.add_argument("--years", type=int, default=3)
-    parser.add_argument("--capital", type=float, default=50000)
+    parser.add_argument("--start", type=str, default=None, help="Start date YYYY-MM-DD")
+    parser.add_argument("--end", type=str, default=None, help="End date YYYY-MM-DD")
+    parser.add_argument("--capital", type=float, default=2000)
+    parser.add_argument("--model", type=str, default="models/lgbm_signal_v1.pkl",
+                        help="ML model path")
     args = parser.parse_args()
 
-    end = datetime.now()
-    start = end - timedelta(days=args.years * 365)
+    # Auto-determine universe from capital if not specified
+    if args.symbols is None:
+        pf_config = PortfolioConfig.from_equity(args.capital)
+        args.symbols = pf_config.get_universe()
+        if "SPY" not in args.symbols:
+            args.symbols.append("SPY")  # Regime actor needs SPY
+        print(f"Capital: ${args.capital:,.0f} → Universe: {len(args.symbols)} symbols")
+        print(pf_config.describe())
+
+    if args.start and args.end:
+        start = datetime.fromisoformat(args.start)
+        end = datetime.fromisoformat(args.end)
+    else:
+        end = datetime.now()
+        start = end - timedelta(days=args.years * 365)
 
     # ── Engine setup ──────────────────────────────────────
 
@@ -134,14 +148,15 @@ def main() -> None:
         starting_balances=[Money(args.capital, USD)],
     )
 
-    # ── Load data ─────────────────────────────────────────
+    # ── Load data (fetch extra lookback for indicators) ─────
 
+    data_start = start - timedelta(days=400)  # 252日ルックバック + 余裕
     all_bars = []
     for sym in args.symbols:
         print(f"Fetching {sym}...")
         instrument = create_instrument(sym)
         engine.add_instrument(instrument)
-        bars = fetch_bars(sym, start, end)
+        bars = fetch_bars(sym, data_start, end)
         all_bars.extend(bars)
         print(f"  {len(bars)} bars")
 
@@ -202,7 +217,7 @@ def main() -> None:
         config=MLSignalConfig(
             strategy_id="ML-BT",
             symbols=args.symbols,
-            model_path="models/lgbm_signal_v1.pkl",
+            model_path=args.model,
             buy_threshold=0.55,  # 高信頼度のみ
             max_hold_days=10,
         ),

@@ -41,14 +41,9 @@ from kryor.strategy.momentum import MomentumConfig, MomentumStrategy
 from kryor.strategy.mean_reversion import MeanReversionConfig, MeanReversionStrategy
 from kryor.strategy.ml_signal import MLSignalConfig, MLSignalStrategy
 
-# ── Universe ──────────────────────────────────────────────────
+# ── Universe (determined by capital at startup) ──────────────
 
-UNIVERSE = [
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
-    "JPM", "V", "JNJ", "UNH", "HD", "PG", "MA", "XOM", "LLY", "ABBV",
-    "MRK", "COST", "AVGO", "PEP", "KO", "TMO", "WMT", "ADBE", "CRM",
-    "ACN", "MCD", "NKE", "LIN", "TXN", "AMD", "QCOM", "ISRG", "AMAT",
-]
+from kryor.core.portfolio_config import PortfolioConfig
 
 
 def main() -> None:
@@ -62,6 +57,13 @@ def main() -> None:
         sys.exit(1)
 
     # ── Pre-load instruments ──────────────────────────────
+
+    # Determine universe from capital
+    initial_capital = float(os.environ.get("INITIAL_CAPITAL", "2000"))
+    pf_config = PortfolioConfig.from_equity(initial_capital)
+    UNIVERSE = pf_config.get_universe()
+    print(f"Capital: ${initial_capital:,.0f} → Universe: {len(UNIVERSE)} symbols")
+    print(pf_config.describe())
 
     provider = AlpacaInstrumentProvider(api_key, secret_key, paper)
     provider.load_symbols(UNIVERSE)
